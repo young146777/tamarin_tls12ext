@@ -1,0 +1,109 @@
+rule start_middle:
+let
+    C = $C
+    M = $M
+
+    // Initialises all variables to zero.
+    init_state()
+
+    tid = ~tid
+in
+    [ Fr(tid)
+    ]
+  --[ Start(tid, M, 'middle'),
+      running_middle(Identity, M)
+    ]->
+    [
+      State(M0, tid, M, C, MiddleState)
+    ]
+
+
+/*
+    Middlebox receives vanilla ClientHello
+*/
+dnl Extensions definitions for vanilla ClientHello
+define(<!ClientHelloExtensions!>, <!<SupportedVersions, GlobalMacValue>!>)
+rule recv_client_hello:
+let
+    set_state()
+    
+    nc = new_nc
+    gx = new_gx
+    g = $new_g
+    gx = g^new_x
+
+    // Abstract client identity - does not currently correspond to
+    // anything concrete
+    // From the server's perspective: associate with an open socket.
+    C = $C
+
+    // Middlebox identity - can be interpreted as the hostname
+    M = $M
+
+    // Middlebox nonce
+    nm = ~new_nm
+
+    messages = <messages, ClientHello>
+in
+    [ In(ClientHello),
+      Fr(nm),
+      State(M0, tid, M, C, PrevMiddleState)
+    ]
+  --[ M0(tid),
+    ]->
+    [
+      State(M1_1, tid, M, C, MiddleState)
+    ]
+
+
+dnl Extensions definitions for basic MiddleHello
+define(<!MiddleHelloExtensions!>, <!<SupportedVersions, GlobalMacValue>!>)
+dnl note. ext에 version, globalmac만 있으면 되나? msgs.m4i에 globalmac 추가 요망
+rule middle_hello:
+let
+    // Initialise state variables to zero.
+    init_state()
+
+    // Abstract client identity - does not currently correspond to
+    // anything concrete
+    M = $M
+
+    // Server identity - can be interpreted as the hostname
+    S = $S
+
+    // Client nonce
+    nm = ~nm
+
+    // We reuse the client nonce to be a thread identifier
+    tid = nm
+
+    // DH exponent
+    g = $g
+    z = ~z
+    gz = g^z
+    
+    // Extension(global mac)
+    gm = $gm
+    c = ~c
+    gmc = gm^c
+   
+    messages = <messages, MiddleHello>
+in
+    [ Fr(nm),
+      Fr(z),
+      Fr(c),
+      State(M1_1, tid, M, C, MiddleState)
+    ]
+  --[ M1_1(tid),
+      Start(tid, C, 'middle'),
+      running_middle(Identity, M),  //note. Identity는 어디서 나오는가
+      DH(tid, M, z),
+      HonestUse(~z),  //note. HonestUse는 어디서 나오는가
+      HonestUse(gz)
+    ]->
+    [
+      State(M1_2, tid, M, S, MiddleState),  //note. MiddleState에 mac정보 추가 요망
+      DHExp(z, tid, M),
+    // Write the MiddleHelloMsg onto the wire *presumably* with destination S
+      Out(MiddleHello)
+    ]
