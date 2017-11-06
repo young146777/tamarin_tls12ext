@@ -28,9 +28,11 @@ let
     set_state()
     
     nc = new_nc
-    gx = new_gx
+    x = new_x
     g = $new_g
     gx = g^new_x
+    
+
 
     // Abstract client identity - does not currently correspond to
     // anything concrete
@@ -59,11 +61,9 @@ in
 dnl Extensions definitions for basic MiddleHello
 define(<!MiddleHelloExtensions!>, <!<SupportedVersions, GlobalMacValue>!>)
 dnl note. ext에 version, globalmac만 있으면 되나? msgs.m4i에 globalmac 추가 요망
-rule middle_hello:
+dnl client_m_hello : middle이 다음 middle 또는 server에게 보내는 clienthello
+rule client_m_hello:
 let
-    // Initialise state variables to zero.
-    init_state()
-
     // Abstract client identity - does not currently correspond to
     // anything concrete
     M = $M
@@ -84,8 +84,8 @@ let
     
     // Extension(global mac)
     gm = $gm
-    c = ~c
-    gmc = gm^c
+    a = ~a
+    gma = gm^a
    
     messages = <messages, MiddleHello>
 in
