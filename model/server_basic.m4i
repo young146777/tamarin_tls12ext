@@ -17,7 +17,7 @@ in
       running_server(Identity, S)
     ]->
     [
-      State(S0, tid, S, M, ServerState) //생각해보니 이렇게 해두고 M=C여도 될것 같다.
+      State(S0, tid, S, M, ServerState)
     ]
 
 
@@ -31,7 +31,7 @@ let
     set_state()
 
     nm = new_nm 
-    gx = new_gx
+    gx = new_gx //????????
     g = $new_g
     gx = g^new_x
 
@@ -50,57 +50,25 @@ let
 in
     [ In(ClientHello),
       Fr(ns),
-      State(S0, tid, S, C, PrevServerState)
+      State(S0, tid, S, M, PrevServerState)
     ]
   --[ S0(tid),
-      Neq(g1, g2)
     ]->
     [
-      State(S1, tid, S, C, ServerState)
+      State(S1, tid, S, M, ServerState)
     ]
 
-define(<!HelloRetryRequestExtensions!>, <!<KeyShareHRR>!>)
-rule hello_retry_request:
-let
-    // Cannot HRR twice in a handshake
-    prev_hrr = '0'
-    prev_sg = $prev_sg
-    // Copies across all values from PrevServerState to ServerState
-    set_state()
-    hrr = 'hrr'
-    new_g = sg
-    g = sg
-
-    C = $C
-    S = $S
-
-    messages = <messages, HelloRetryRequest>
-
-in
-    [ State(S1, tid, S, C, PrevServerState)
-    ]
-  --[ S1_retry(tid),
-      Neq(prev_g, sg),
-      Instance(tid, S, 'server')
-    ]->
-    [ Out(HelloRetryRequest),
-      State(S0, tid, S, C, ServerState)
-    ]
 
 /*
     Server sends basic ServerHello
 */
 dnl Extensions definitions for vanilla ServerHello
-define(<!ServerHelloExtensions!>, <!<SignatureSchemeList, KeyShareSH>!>)
+define(<!ServerHelloExtensions!>, <!<SignatureSchemeList, KeyShareSH>!>)    dnl Note. 수정 요망???
 rule server_hello:
 let
     prev_g = $prev_g
-    prev_gx = prev_g^some_x
+    prev_gz = prev_g^some_z
     set_state()
-
-    // Server continuing in normal mode (no PSK mode)
-    psk_ke_mode = 'na'
-    auth_status = <'0', '0'>
 
     C = $C
     S = $S
@@ -108,25 +76,27 @@ let
     // Group, DH exponent, key share
     y = ~y
     gy = g^y
-    gxy = gx^y
+    gzy = gz^y
 
-    es = EarlySecret
-    messages = <messages, ServerHello>
+    // Global mac
+    b = ~b
+    gmb = gm^b
+    
+    smmessages = <smmessages, ServerHello>
 in
-    [ State(S1, tid, S, C, PrevServerState),
+    [ State(S1, tid, S, M, PrevServerState),
       Fr(y)
     ]
   --[ S1(tid),
-      Eq(g, sg),
       Neq(gx, g),
       Neq(gxy, g),
       Instance(tid, S, 'server'),
-      running_server(Nonces, nc, ns),
-      DHChal(g, some_x, y, gx, gy, gxy),
+      running_server(Nonces, nm, ns),
+      DHChal(g, some_z, y, gz, gy, gzy),
       DH(tid, S, y)
     ]->
     [
-      State(S2a, tid, S, C, ServerState),
+      State(S2a, tid, S, M, ServerState),
       DHExp(y, tid, S),
       Out(ServerHello)
     ]
