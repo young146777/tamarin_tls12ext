@@ -26,7 +26,7 @@ in
 */
 dnl Extensions definitions for vanilla ClientHello
 define(<!ClientHelloExtensions!>, <!<SupportedVersions, GlobalMacValue >!>)
-rule recv_middle_hello:
+rule recv_client_m_hello:
 let
     set_state()
 
@@ -46,9 +46,9 @@ let
     // Server nonce
     ns = ~new_ns
 
-    smmessages = <smmessages, MiddleHello>  //smmessages : server와 middle이 주고받은 메시지 누적
+    smmessages = <smmessages, ClientMiddleHello>  //smmessages : server와 middle이 주고받은 메시지 누적
 in
-    [ In(ClientHello),
+    [ In(ClientMiddleHello),
       Fr(ns),
       State(S0, tid, S, M, PrevServerState)
     ]
