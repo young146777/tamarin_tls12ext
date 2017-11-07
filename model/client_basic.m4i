@@ -6,7 +6,7 @@ dnl(
 dnl Extensions definitions for basic ClientHello
 define(<!ClientHelloExtensions!>, <!<SupportedVersions, GlobalMacValue>!>)
 dnl note. ext에 version, globalmac만 있으면 되나?
-rule client_hello_ext:
+rule client_hello:
 let
     // Initialise state variables to zero.
     init_state()
@@ -34,7 +34,7 @@ let
     a = ~a
     gma = gm^a
    
-    messages = <messages, ClientHello>
+    cmmessages = <cmmessages, ClientHello>
 in
     [ Fr(nc),
       Fr(x),
@@ -48,53 +48,51 @@ in
       HonestUse(gx)
     ]->
     [
-      State(C1, tid, C, S, ClientState),  //note. ClientState에 mac정보 추가 요망
+      State(C1, tid, C, M, ClientState),  //note. ClientState에 mac정보 추가 요망 + M대신 S를 써야하는가?
       DHExp(x, tid, C),
     // Write the ClientHelloMsg onto the wire *presumably* with destination S
       Out(ClientHello)
     ]
 
-dnl note. 여기까지 수정
+
 dnl Extensions definitions for basic ServerHello
 define(<!ServerHelloExtensions!>, <!<SignatureSchemeList, GlobalMacValue>!>)
-rule recv_server_hello:
+rule recv_server_m_hello:
 let
     prev_g = $g
     prev_x = ~x
 
     set_state()
-    ns = new_ns
-    gy = new_gy
+    nm = new_nm
+    gw = new_gw
 
     C = $C
     S = $S
 
     // equivalent to checking gy in <$g>
-    gy = g^new_y
+    gw = g^new_w
 
     // Derive the shared secret
-    gxy = gy^x
+    gxw = gw^x
 
-    // Received a basic server hello - abandon PSK mode (if attempted)
-    psk_ke_mode = 'na'
-    auth_status = <'0', '0'>
-
-    messages = <messages, ServerHello>
+    cmmessages = <cmmessages, ServerMiddleHello>
 in
     [ State(C1, tid, C, S, PrevClientState),
       In(ServerHello)
     ]
   --[ C1(tid),
       Instance(tid, C, 'client'),
-      Neq(gy, g),
-      Neq(gxy, g),
-      DHChal(g, x, new_y, gx, gy, gxy),
-      running_client(Nonces, nc, ns)
+      Neq(gw, g),
+      Neq(gxw, g),
+      DHChal(g, x, new_w, gx, gw, gxw),
+      running_client(Nonces, nc, nm)
     ]->
     [
-      State(C2a, tid, C, S, ClientState)
+      State(C2a, tid, C, M, ClientState)
     ]
 
+
+dnl note. 여기까지 수정
 rule client_gen_keys:
 let
     set_state()
