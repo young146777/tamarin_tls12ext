@@ -45,7 +45,7 @@ let
     // Middlebox nonce
     nm = ~new_nm
 
-    messages = <messages, ClientHello>
+    cmmessages = <cmmessages, ClientHello>
 in
     [ In(ClientHello),
       Fr(nm),
@@ -87,15 +87,14 @@ let
     a = ~a
     gma = gm^a
    
-    messages = <messages, MiddleHello>
+    smmessages = <smmessages, ClientMiddleHello>
 in
     [ Fr(nm),
       Fr(z),
-      Fr(c),
       State(M1_1, tid, M, C, MiddleState)
     ]
   --[ M1_1(tid),
-      Start(tid, C, 'middle'),
+      Start(tid, M, 'middle'),
       running_middle(Identity, M),  //note. Identity는 어디서 나오는가
       DH(tid, M, z),
       HonestUse(~z),  //note. HonestUse는 어디서 나오는가
@@ -105,5 +104,91 @@ in
       State(M1_2, tid, M, S, MiddleState),  //note. MiddleState에 mac정보 추가 요망
       DHExp(z, tid, M),
     // Write the MiddleHelloMsg onto the wire *presumably* with destination S
-      Out(MiddleHello)
+      Out(ClientMiddleHello)
+    ]
+    
+    
+dnl Extensions definitions for basic ServerHello
+define(<!ServerHelloExtensions!>, <!<SignatureSchemeList, GlobalMacValue>!>)
+rule recv_server_hello:
+let
+    prev_g = $g
+    prev_x = ~x
+
+    set_state()
+    ns = new_ns
+    gy = new_gy
+
+    C = $C
+    M = $M
+    S = $S
+
+    // equivalent to checking gy in <$g>
+    gy = g^new_y
+
+    // Derive the shared secret
+    gzy = gy^z
+    
+    // Server Global mac
+    b = ~b
+    gmb = gm^b 
+    
+    smmessages = <smmessages, ServerHello>
+in
+    [ State(C1, tid, M, S, PrevMiddleState),
+      In(ServerHello)
+    ]
+  --[ C1(tid),
+      Instance(tid, C, 'client'),
+      Neq(gy, g),
+      Neq(gxy, g),
+      DHChal(g, z, new_y, gz, gy, gzy),
+      running_middle(Nonces, nm, ns)
+    ]->
+    [
+      State(C2a, tid, M, S, MiddleState)
+    ]
+
+
+
+dnl Extensions definitions for vanilla ServerHello
+define(<!ServerHelloExtensions!>, <!<SignatureSchemeList, KeyShareSH>!>)    dnl Note. 수정 요망???
+rule server_m_hello:
+let
+    prev_g = $prev_g
+    prev_gx = prev_g^some_x
+    set_state()
+
+    C = $C
+    S = $S
+
+    // Group, DH exponent, key share
+    w = ~w
+    gw = g^w
+    gxw = gx^w
+
+    // Global mac
+    b = ~b
+    gmb = gm^b
+    
+    c = ~c
+    gmc = gm^c
+    
+    cmmessages = <cmmessages, ServerMiddleHello>  //MiddleHello를 ClientMiddleHello와 ServerMiddleHello로 나눠야 하는가?
+in
+    [ State(S1, tid, S, M, PrevMiddleState),
+      Fr(z)
+    ]
+  --[ S1(tid),
+      Neq(gx, g),
+      Neq(gxw, g),
+      Instance(tid, M, 'middle'),
+      running_middle(Nonces, nc, nm),
+      DHChal(g, some_x, w, gx, gw, gxw),
+      DH(tid, M, w) // DH(tid, M, z)와 겹치지 않을까??????????????? tid가 달라서 안겹칠지도?
+    ]->
+    [
+      State(S2a, tid, M, C, MiddleState),
+      DHExp(w, tid, M),
+      Out(ServerMiddleHello)
     ]
